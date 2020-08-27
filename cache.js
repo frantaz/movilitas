@@ -1,13 +1,12 @@
 const mongoose = require('mongoose');
-const { default: to } = require('await-to-js');
 const Schema = mongoose.Schema;
 
 const resultOk = "Ok";
 
 const config = {
-  connectionString: "",
+  connectionString: "mongodb://localhost/test",
   cacheSize: 100,
-  expiresAfter: 10 // minutes
+  expiresAfter: 600 // seconds
 }
 
 const cacheSchema = new Schema({
@@ -21,42 +20,82 @@ const Item = mongoose.model('Cache', cacheSchema);
 
 const createString = () => Math.random().toString(36).substr(2, 10);
 
-const hasErr = (itemWithErr) => itemWithErr[1] != resultOk;
+const hasExpired = (item, expireMillisec) => new Date() - item.createdAt > expireMillisec;
 
 async function getItem(key) {
-  const itemWithErr = find(key);
-  if (hasErr(itemWithErr[1])) return itemWithErr;
+  let db = null;
+  try {
+    const resp;
+    await mongoose.connect(config.connectionString, { useNewUrlParser: true });
+    db = mongoose.connection;
 
-  console.log(`Cache ${item ? "hit" : "miss"}`);
+    const item = await find(key);
+    if (item) resp = item;
+    else resp = await createItem();
+    
+    db.close();
 
-  if (itemWithErr[0]) return itemWithErr;
-
-  return createItem();
+    return resp;
+  } catch (err) {
+      (db) && db.close();
+      console.log('Error at db ::', err)
+      throw err;
+  }
 }
 
 async function find(key)
 {
-  const [err, item] = await to(Item.findOne({key}));
-  if (err) {
-    console.log(`Error at mongodb: ${err}`);
-    return ["", err];
+  item = await Item.findOne({key});
+  if (item)
+  {
+    if (hasExpired(item, config.expiresAfter * 1000)) {
+      return await updateItem(item);
+    }
+    else {
+      return item.value;
+    }
   }
-
-  return [item.value, resultOk];
+  
+  count = await Item.estimatedDocumentCount({key});
+  if (count > config.cacheSize)
+  {
+    removeSomeItems(10);
+  }
+  
+  return "";
 }
 
 async function createItem()
 {
   const newItem = new Item({key, value: createString(), createdAt: new Date()});
-  const [err, item] = await to(newItem.save());
-  if (err) {
-    console.log(`Error at mongodb: ${err}`);
-    return ["", err];
+  const item = await newItem.save();
+  console.log(`Cache miss`);
+  return item;
+}
+
+async function updateItem(item)
+{
+  item.value = createString();
+  item.createdAt = new Date();
+  const item = await item.save();
+  console.log(`Cache miss`);
+  return item.value;
+}
+
+async function removeSomeItems(minNumberofRemove)
+{
+  count = await Item.estimatedDocumentCount({ createdAt: { $lt: new Date() - config.expiresAfter * 1000 } });
+  if (count > 0)
+  {
+    await Item.deleteMany({ createdAt: { $lt: new Date() - config.expiresAfter * 1000 } });
+  } else
+  {
+    const items = await Item.find().sort({createdAt: 1}).limit(minNumberofRemove);
+    await Item.remove({_id: { $in: items.map(i => i._id) } });
+  });
   }
-  return [newItem, resultOk];
 }
 
 module.exports = {
-  getItem,
-  hasErr
+  getItem
 };

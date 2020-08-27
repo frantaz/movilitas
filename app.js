@@ -4,6 +4,7 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
 var indexRouter = require('./routes/index');
+var apiRouter = require('./routes/cacheapi');
 
 var app = express();
 const port = 3000;
@@ -14,6 +15,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
+app.use('/api', apiRouter);
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`)
