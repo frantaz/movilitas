@@ -52,6 +52,7 @@ async function find(key)
       return await updateItem(item);
     }
     else {
+      console.log(`Cache hit`);
       return item;
     }
   }
