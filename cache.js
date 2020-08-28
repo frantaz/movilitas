@@ -25,7 +25,7 @@ const hasExpired = (item, expireMillisec) => new Date() - item.createdAt > expir
 async function getItem(key) {
   let db = null;
   try {
-    const resp;
+    let resp;
     await mongoose.connect(config.connectionString, { useNewUrlParser: true });
     db = mongoose.connection;
 
@@ -77,7 +77,7 @@ async function updateItem(item)
 {
   item.value = createString();
   item.createdAt = new Date();
-  const item = await item.save();
+  item = await item.save();
   console.log(`Cache miss`);
   return item.value;
 }
@@ -92,7 +92,6 @@ async function removeSomeItems(minNumberofRemove)
   {
     const items = await Item.find().sort({createdAt: 1}).limit(minNumberofRemove);
     await Item.remove({_id: { $in: items.map(i => i._id) } });
-  });
   }
 }
 
