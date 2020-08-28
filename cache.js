@@ -4,7 +4,7 @@ const Schema = mongoose.Schema;
 const resultOk = "Ok";
 
 const config = {
-  connectionString: "mongodb://localhost/test",
+  connectionString: "mongodb://127.0.0.1:27017/test",
   cacheSize: 100,
   expiresAfter: 600 // seconds
 }
@@ -16,7 +16,7 @@ const cacheSchema = new Schema({
 });
 
 // compile our model
-const Item = mongoose.model('Cache', cacheSchema);
+const Item = mongoose.model('cache', cacheSchema);
 
 const createString = () => Math.random().toString(36).substr(2, 10);
 
@@ -31,11 +31,11 @@ async function getItem(key) {
 
     const item = await find(key);
     if (item) resp = item;
-    else resp = await createItem();
+    else resp = await createItem(key);
     
     db.close();
 
-    return resp;
+    return resp.value;
   } catch (err) {
       (db) && db.close();
       console.log('Error at db ::', err)
@@ -52,7 +52,7 @@ async function find(key)
       return await updateItem(item);
     }
     else {
-      return item.value;
+      return item;
     }
   }
   
@@ -65,7 +65,7 @@ async function find(key)
   return "";
 }
 
-async function createItem()
+async function createItem(key)
 {
   const newItem = new Item({key, value: createString(), createdAt: new Date()});
   const item = await newItem.save();
@@ -79,7 +79,7 @@ async function updateItem(item)
   item.createdAt = new Date();
   item = await item.save();
   console.log(`Cache miss`);
-  return item.value;
+  return item;
 }
 
 async function removeSomeItems(minNumberofRemove)
