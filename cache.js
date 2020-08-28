@@ -100,10 +100,10 @@ async function removeSomeItems(options)
   const expiredItems = await Item.find({ createdAt: { $lt: new Date() - config.expiresAfter * 1000 } });
   if (expiredItems.length > 0)
   {
-    var q = await Item.deleteMany({_id: { $in: expiredItems.map(i => i._id) } });
+    await Item.deleteMany({_id: { $in: expiredItems.map(i => i._id) } });
   } else {
     const oldestItems = await Item.find().sort({createdAt: 1}).limit(shrinkBy);
-    var q = await Item.deleteMany({_id: { $in: oldestItems.map(i => i._id) } });
+    await Item.deleteMany({_id: { $in: oldestItems.map(i => i._id) } });
   }
 }
 
@@ -166,9 +166,35 @@ async function removeAll()
   }
 }
 
+async function updateItem({key, value})
+{
+  let db = null;
+  try {
+    const connStr = getConfig(options, "connectionString");
+
+    await mongoose.connect(connStr, { useNewUrlParser: true });
+    db = mongoose.connection;
+
+    const item = await Item.findOne({key});
+    if (item)
+    {
+      item.key = key;
+      item.value = value;
+      item.createdAt = new Date();
+      await item.save();
+    }
+    db.close();
+  } catch (err) {
+      (db) && db.close();
+      console.log('Error at db ::', err)
+      throw err;
+  }
+}
+
 module.exports = {
   getItem,
   getKeys,
   removeItem,
-  removeAll
+  removeAll,
+  updateItem
 };
