@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { options } = require('./app');
 const Schema = mongoose.Schema;
 
 const resultOk = "Ok";
@@ -6,7 +7,8 @@ const resultOk = "Ok";
 const config = {
   connectionString: "mongodb://127.0.0.1:27017/test",
   cacheSize: 100,
-  expiresAfter: 600 // seconds
+  expiresAfter: 120, // seconds
+  shrinkBy: 10
 }
 
 const cacheSchema = new Schema({
@@ -15,21 +17,25 @@ const cacheSchema = new Schema({
     createdAt: Date
 });
 
-// compile our model
 const Item = mongoose.model('cache', cacheSchema);
 
 const createString = () => Math.random().toString(36).substr(2, 10);
 
 const hasExpired = (item, expireMillisec) => new Date() - item.createdAt > expireMillisec;
 
-async function getItem(key) {
+const getConfig = (options, prop) => (options && options[prop]) || config[prop];
+
+async function getItem(key, options) {
   let db = null;
   try {
+    const connStr = getConfig(options, "connectionString");
+
     let resp;
-    await mongoose.connect(config.connectionString, { useNewUrlParser: true });
+
+    await mongoose.connect(connStr, { useNewUrlParser: true });
     db = mongoose.connection;
 
-    const item = await find(key);
+    const item = await find(key, options);
     if (item) resp = item;
     else resp = await createItem(key);
     
@@ -43,13 +49,18 @@ async function getItem(key) {
   }
 }
 
-async function find(key)
+async function find(key, options)
 {
+  const expiresAfter = getConfig(options, "expiresAfter");
+  const cacheSize = getConfig(options, "cacheSize");
   item = await Item.findOne({key});
+  console.log(`Item ${item}`);
   if (item)
   {
-    if (hasExpired(item, config.expiresAfter * 1000)) {
-      return await updateItem(item);
+    if (hasExpired(item, expiresAfter * 1000)) {
+      const updatedItem = await updateItem(item);
+      await removeSomeItems(options);
+      return updatedItem;
     }
     else {
       console.log(`Cache hit`);
@@ -57,10 +68,11 @@ async function find(key)
     }
   }
   
-  count = await Item.estimatedDocumentCount({key});
-  if (count > config.cacheSize)
+  const count = await Item.countDocuments();
+  if (count >= cacheSize)
   {
-    removeSomeItems(10);
+    console.log(`Cache limit reached ${count}`);
+    await removeSomeItems(options);
   }
   
   return "";
@@ -83,16 +95,19 @@ async function updateItem(item)
   return item;
 }
 
-async function removeSomeItems(minNumberofRemove)
+async function removeSomeItems(options)
 {
-  count = await Item.estimatedDocumentCount({ createdAt: { $lt: new Date() - config.expiresAfter * 1000 } });
-  if (count > 0)
+  const shrinkBy = getConfig(options, "shrinkBy");
+  const expiredItems = await Item.find({ createdAt: { $lt: new Date() - config.expiresAfter * 1000 } });
+  console.log(`Expired number of items: ${expiredItems.length}`);
+  if (expiredItems.length > 0)
   {
-    await Item.deleteMany({ createdAt: { $lt: new Date() - config.expiresAfter * 1000 } });
-  } else
-  {
-    const items = await Item.find().sort({createdAt: 1}).limit(minNumberofRemove);
-    await Item.remove({_id: { $in: items.map(i => i._id) } });
+    var q = await Item.deleteMany({_id: { $in: expiredItems.map(i => i._id) } });
+    console.log(`Deleted count: ${q.deletedCount}`);
+  } else {
+    const oldestItems = await Item.find().sort({createdAt: 1}).limit(shrinkBy);
+    var q = await Item.deleteMany({_id: { $in: oldestItems.map(i => i._id) } });
+    console.log(`Deleted count: ${q.deletedCount}`);
   }
 }
 
