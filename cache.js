@@ -71,7 +71,6 @@ async function find(key, options)
   const count = await Item.countDocuments();
   if (count >= cacheSize)
   {
-    console.log(`Cache limit reached ${count}`);
     await removeSomeItems(options);
   }
   
@@ -99,18 +98,38 @@ async function removeSomeItems(options)
 {
   const shrinkBy = getConfig(options, "shrinkBy");
   const expiredItems = await Item.find({ createdAt: { $lt: new Date() - config.expiresAfter * 1000 } });
-  console.log(`Expired number of items: ${expiredItems.length}`);
   if (expiredItems.length > 0)
   {
     var q = await Item.deleteMany({_id: { $in: expiredItems.map(i => i._id) } });
-    console.log(`Deleted count: ${q.deletedCount}`);
   } else {
     const oldestItems = await Item.find().sort({createdAt: 1}).limit(shrinkBy);
     var q = await Item.deleteMany({_id: { $in: oldestItems.map(i => i._id) } });
-    console.log(`Deleted count: ${q.deletedCount}`);
+  }
+}
+
+async function getKeys() {
+  let db = null;
+  try {
+    const connStr = getConfig(options, "connectionString");
+
+    let resp;
+
+    await mongoose.connect(connStr, { useNewUrlParser: true });
+    db = mongoose.connection;
+
+    const items = await Item.find();
+    
+    db.close();
+
+    return items.map(i => i.key);
+  } catch (err) {
+      (db) && db.close();
+      console.log('Error at db ::', err)
+      throw err;
   }
 }
 
 module.exports = {
-  getItem
+  getItem,
+  getKeys
 };
