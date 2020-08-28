@@ -22,8 +22,28 @@ router.get('/keys/:key', async function(req, res, next) {
 
 router.get('/keys', async function(req, res, next) {
   try {
-    const value = await api.getKeys();
-    res.status(200).send(value);
+    const keys = await api.getKeys();
+    res.status(200).send(keys);
+  } 
+  catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+router.delete('/keys/:key', async function(req, res, next) {
+  try {
+    await api.removeItem(req.params.key);
+    res.status(200).send();
+  } 
+  catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+router.delete('/keys', async function(req, res, next) {
+  try {
+    await api.removeAll();
+    res.status(200).send();
   } 
   catch (err) {
     res.status(500).send(err);

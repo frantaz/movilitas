@@ -53,7 +53,7 @@ async function find(key, options)
 {
   const expiresAfter = getConfig(options, "expiresAfter");
   const cacheSize = getConfig(options, "cacheSize");
-  item = await Item.findOne({key});
+  const item = await Item.findOne({key});
   console.log(`Item ${item}`);
   if (item)
   {
@@ -111,9 +111,6 @@ async function getKeys() {
   let db = null;
   try {
     const connStr = getConfig(options, "connectionString");
-
-    let resp;
-
     await mongoose.connect(connStr, { useNewUrlParser: true });
     db = mongoose.connection;
 
@@ -129,7 +126,49 @@ async function getKeys() {
   }
 }
 
+async function removeItem(key)
+{
+  let db = null;
+  try {
+    const connStr = getConfig(options, "connectionString");
+
+    await mongoose.connect(connStr, { useNewUrlParser: true });
+    db = mongoose.connection;
+
+    const item = await Item.findOne({key});
+    if (item)
+    {
+      await Item.deleteOne({key});
+    }
+    db.close();
+  } catch (err) {
+      (db) && db.close();
+      console.log('Error at db ::', err)
+      throw err;
+  }
+}
+
+async function removeAll()
+{
+  let db = null;
+  try {
+    const connStr = getConfig(options, "connectionString");
+    await mongoose.connect(connStr, { useNewUrlParser: true });
+    db = mongoose.connection;
+
+    await Item.deleteMany();
+    
+    db.close();
+  } catch (err) {
+      (db) && db.close();
+      console.log('Error at db ::', err)
+      throw err;
+  }
+}
+
 module.exports = {
   getItem,
-  getKeys
+  getKeys,
+  removeItem,
+  removeAll
 };
