@@ -1,65 +1,31 @@
-const mongoose = require('mongoose');
-const { options } = require('./app');
-const Schema = mongoose.Schema;
-
-const resultOk = "Ok";
-
-const config = {
-  connectionString: "mongodb://127.0.0.1:27017/test",
-  cacheSize: 100,
-  expiresAfter: 120, // seconds
-  shrinkBy: 10
-}
-
-const cacheSchema = new Schema({
-    key: String,
-    value: String,
-    createdAt: Date
-});
-
-const Item = mongoose.model('cache', cacheSchema);
+const Item = require('./model/cache');
+const config = require('./config');
 
 const createString = () => Math.random().toString(36).substr(2, 10);
 
 const hasExpired = (item, expireMillisec) => new Date() - item.createdAt > expireMillisec;
 
-const getConfig = (options, prop) => (options && options[prop]) || config[prop];
+async function getItem(key) {
+    const item = await find(key);
+    if (item) {
+      return item;
+    }
 
-async function getItem(key, options) {
-  let db = null;
-  try {
-    const connStr = getConfig(options, "connectionString");
-
-    let resp;
-
-    await mongoose.connect(connStr, { useNewUrlParser: true });
-    db = mongoose.connection;
-
-    const item = await find(key, options);
-    if (item) resp = item;
-    else resp = await createItem(key);
-    
-    db.close();
-
-    return resp.value;
-  } catch (err) {
-      (db) && db.close();
-      console.log('Error at db ::', err)
-      throw err;
-  }
+    return createItem(key);
 }
 
-async function find(key, options)
+async function find(key)
 {
-  const expiresAfter = getConfig(options, "expiresAfter");
-  const cacheSize = getConfig(options, "cacheSize");
+  const expiresAfter = config["expiresAfter"];
+  const cacheSize = config["cacheSize"];
   const item = await Item.findOne({key});
+
   console.log(`Item ${item}`);
   if (item)
   {
     if (hasExpired(item, expiresAfter * 1000)) {
-      const updatedItem = await updateItem(item);
-      await removeSomeItems(options);
+      console.log(`Expired`);
+      const updatedItem = await update(item);
       return updatedItem;
     }
     else {
@@ -85,18 +51,19 @@ async function createItem(key)
   return item;
 }
 
-async function updateItem(item)
+async function update(item)
 {
   item.value = createString();
   item.createdAt = new Date();
-  item = await item.save();
+  const newitem = await item.save();
   console.log(`Cache miss`);
-  return item;
+  return newitem;
 }
 
-async function removeSomeItems(options)
+async function removeSomeItems()
 {
-  const shrinkBy = getConfig(options, "shrinkBy");
+  console.log('Remove some items');
+  const shrinkBy = config["shrinkBy"];
   const expiredItems = await Item.find({ createdAt: { $lt: new Date() - config.expiresAfter * 1000 } });
   if (expiredItems.length > 0)
   {
@@ -108,86 +75,33 @@ async function removeSomeItems(options)
 }
 
 async function getKeys() {
-  let db = null;
-  try {
-    const connStr = getConfig(options, "connectionString");
-    await mongoose.connect(connStr, { useNewUrlParser: true });
-    db = mongoose.connection;
-
-    const items = await Item.find();
-    
-    db.close();
-
-    return items.map(i => i.key);
-  } catch (err) {
-      (db) && db.close();
-      console.log('Error at db ::', err)
-      throw err;
-  }
+  const items = await Item.find();
+  return items.map(i => i.key);
 }
 
 async function removeItem(key)
 {
-  let db = null;
-  try {
-    const connStr = getConfig(options, "connectionString");
-
-    await mongoose.connect(connStr, { useNewUrlParser: true });
-    db = mongoose.connection;
-
-    const item = await Item.findOne({key});
-    if (item)
-    {
-      await Item.deleteOne({key});
-    }
-    db.close();
-  } catch (err) {
-      (db) && db.close();
-      console.log('Error at db ::', err)
-      throw err;
+  const item = await Item.findOne({key});
+  if (item)
+  {
+    await Item.deleteOne({key});
   }
 }
 
 async function removeAll()
 {
-  let db = null;
-  try {
-    const connStr = getConfig(options, "connectionString");
-    await mongoose.connect(connStr, { useNewUrlParser: true });
-    db = mongoose.connection;
-
-    await Item.deleteMany();
-    
-    db.close();
-  } catch (err) {
-      (db) && db.close();
-      console.log('Error at db ::', err)
-      throw err;
-  }
+  await Item.deleteMany();
 }
 
 async function updateItem({key, value})
 {
-  let db = null;
-  try {
-    const connStr = getConfig(options, "connectionString");
-
-    await mongoose.connect(connStr, { useNewUrlParser: true });
-    db = mongoose.connection;
-
-    const item = await Item.findOne({key});
-    if (item)
-    {
-      item.key = key;
-      item.value = value;
-      item.createdAt = new Date();
-      await item.save();
-    }
-    db.close();
-  } catch (err) {
-      (db) && db.close();
-      console.log('Error at db ::', err)
-      throw err;
+  const item = await Item.findOne({key});
+  if (item)
+  {
+    item.key = key;
+    item.value = value;
+    item.createdAt = new Date();
+    await item.save();
   }
 }
 
