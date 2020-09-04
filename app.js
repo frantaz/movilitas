@@ -1,7 +1,6 @@
 const connect = require('./model/db');
 const config = require('./config');
 const express = require('express');
-const path = require('path');
 const logger = require('morgan');
 
 var apiRouter = require('./routes/cacheapi');

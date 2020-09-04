@@ -2,7 +2,7 @@ var mongoose = require( 'mongoose' );
 
 async function connect(connStr) {
 
-  await mongoose.connect(connStr, { useNewUrlParser: true });
+  await mongoose.connect(connStr, { useNewUrlParser: true, useUnifiedTopology: true });
 
   mongoose.connection.on('connected', function () {
     console.log('Mongoose default connection open to ' + connStr);
