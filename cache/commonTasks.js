@@ -1,7 +1,7 @@
 const R = require('ramda');
 const Task = require('folktale/concurrency/task');
 const Item = require('../model/cache');
-const { createString } = require('../utils'); 
+const { createString } = require('./common');
 
 // findOneByKeyT :: String -> Task Error Item
 const findOneByKeyT = Task.fromPromised(key => Item.findOne({key}).exec());

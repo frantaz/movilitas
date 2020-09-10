@@ -1,5 +1,4 @@
 const R = require('ramda');
-const Task = require('folktale/concurrency/task');
 const config = require('../config');
 const { log } = require('../utils');
 const { createItemT, findOneByKeyT } = require('./commonTasks');

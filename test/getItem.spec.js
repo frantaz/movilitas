@@ -22,18 +22,25 @@ describe("getItem() test", () => {
   });
 
   test("return existing item if it exists", async () => {
-      const renewIfExpiredTCalled = jest.fn(x => x);
-  
-      GT.renewIfExpiredT.mockImplementation(Task.fromPromised((item) => { 
-        renewIfExpiredTCalled(true);
-        return  Promise.resolve(item) 
-      }));
-      CT.findOneByKeyT.mockImplementation(Task.fromPromised(() => Promise.resolve(item1)));
-  
-      const value = await getItem("test1").run().promise();
-      expect(value).toBe(item1);
-      expect(renewIfExpiredTCalled.mock.calls.length == 1 && renewIfExpiredTCalled.mock.results[0].value).toBe(true);  
-    });
+    GT.renewIfExpiredT.mockImplementation(Task.fromPromised(item => Promise.resolve(item)));
+    CT.findOneByKeyT.mockImplementation(Task.fromPromised(() => Promise.resolve(item1)));
+
+    const value = await getItem("test1").run().promise();
+    expect(value).toBe(item1);
+  });
+
+  test("check if the cache lifetime expired", async () => {
+    const renewIfExpiredTCalled = jest.fn(x => x);
+
+    GT.renewIfExpiredT.mockImplementation(Task.fromPromised((item) => { 
+      renewIfExpiredTCalled(true);
+      return  Promise.resolve(item) 
+    }));
+    CT.findOneByKeyT.mockImplementation(Task.fromPromised(() => Promise.resolve(item1)));
+
+    const value = await getItem("test1").run().promise();
+    expect(renewIfExpiredTCalled.mock.calls.length == 1 && renewIfExpiredTCalled.mock.results[0].value).toBe(true);  
+  });
 
   test("always check if cache is full when item is not found", async () => {
     const fullCheckCalled = jest.fn(x => x);
