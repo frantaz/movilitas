@@ -31,7 +31,8 @@ router.delete('/keys/:key', async function(req, res, next) {
     res.sendStatus(200);
   } 
   catch (err) {
-    res.status(500).send(err);
+    console.log(err);
+    res.sendStatus(500);
   }
 });
 
@@ -41,7 +42,8 @@ router.delete('/keys', async function(req, res, next) {
     res.sendStatus(200);
   } 
   catch (err) {
-    res.status(500).send(err);
+    console.log(err);
+    res.sendStatus(500);
   }
 });
 
